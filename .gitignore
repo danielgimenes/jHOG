@@ -1,0 +1,11 @@
+*.class
+*.exe
+*.o
+*.obj
+.project
+.classpath
+.settings
+*.db
+.gitignore~
+LICENSE~
+bin/
