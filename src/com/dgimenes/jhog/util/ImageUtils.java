@@ -2,10 +2,11 @@ package com.dgimenes.jhog.util;
 
 import java.awt.Image;
 import java.awt.image.BufferedImage;
+import java.awt.image.IndexColorModel;
 
 public class ImageUtils {
 	public static int[] adaptMinAndMaxValuesToGrayScale(double[][] intensityMatrix) {
-		int matrixSize =intensityMatrix.length * intensityMatrix[0].length;
+		int matrixSize = intensityMatrix.length * intensityMatrix[0].length;
 		int[] equalizedImage = new int[matrixSize];
 		double minMagnitude = 0;
 		double maxMagnitude = 0;
@@ -23,7 +24,7 @@ public class ImageUtils {
 		}
 		return equalizedImage;
 	}
-	
+
 	public static int[] getHistogramEqualizeGrayScaleImage(int[] imagePixels) {
 		int imageSize = imagePixels.length;
 		int[] equalizedImage = new int[imageSize];
@@ -48,6 +49,16 @@ public class ImageUtils {
 	public static Image getBufferedImageFrom3bytePixelArray(int[] rgb, int width, int height) {
 		BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
 		image.setRGB(0, 0, width, height, rgb, 0, width);
+		for (int i = 0; i < image.getWidth(); i++) {
+			for (int j = 0; j < image.getHeight(); j++) {
+				int[] c;
+				c = image.getRaster().getPixel(i, j, new int[4]);
+				if (c[0] != c[1] || c[0] != c[2] || c[1] != c[2]) {
+					System.out.println(c[0] + " " + c[1] + " " + c[2]);
+					System.out.println(rgb[i + (i * j)]);
+				}
+			}
+		}
 		return image;
 	}
 }

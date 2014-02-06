@@ -39,11 +39,13 @@ public class JHOGTest {
 	private void showImagesRepresentingHOGProcessing(HOGProcessor hog) {
 		JFrame frame = new JFrame(JHOGTest.class.getSimpleName());
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		frame.setLayout(new GridLayout(2, 3));
+		frame.setLayout(new GridLayout(2, 2));
 		this.addPanelWithImage(frame, "Original Image", hog.getOriginalImage());
 		this.addPanelWithImage(frame, "Luminosity Image", hog.getLuminosityImage());
-		this.addPanelWithImage(frame, "Luminosity Image (HistogramEq)", hog.getLuminosityImageHistogramEqualized());
+		// this.addPanelWithImage(frame, "Luminosity Image (HistogramEq)",
+		// hog.getLuminosityImageHistogramEqualized());
 		this.addPanelWithImage(frame, "Gradient Magnitudes (MinMaxEq)", hog.getGradientMagnitudeImage());
+		this.addPanelWithImage(frame, "Gradient Cells", hog.getLuminosityImageWithCells());
 		frame.pack();
 		frame.setLocationRelativeTo(null);
 		frame.setVisible(true);
