@@ -31,8 +31,8 @@ public class HOGProcessor {
 		// get pixels luminosity matrix
 		this.createPixelLuminosityMatrix();
 
-		// calculate gradient strenght for each pixel
-		this.calculateGradientStrenghts();
+		// calculate gradients for each pixel
+		this.calculateGradients();
 
 		// create histograms for each cell
 		this.createHistograms();
@@ -44,13 +44,13 @@ public class HOGProcessor {
 		this.processed = true;
 	}
 
-	private void calculateGradientStrenghts() {
+	private void calculateGradients() {
 		gradientsOrientation = new double[this.image.getWidth() - 2][this.image.getHeight() - 2];
 		gradientsMagnitute = new double[this.image.getWidth() - 2][this.image.getHeight() - 2];
 		// do not consider 1 pixel from image border to facilitate
 		for (int i = 1; i < pixelLuminMatrix.length - 1; i++) {
 			for (int j = 1; j < pixelLuminMatrix[0].length - 1; j++) {
-				double dx = pixelLuminMatrix[i + 1][j] - pixelLuminMatrix[i + 1][j];
+				double dx = pixelLuminMatrix[i + 1][j] - pixelLuminMatrix[i - 1][j];
 				double dy = pixelLuminMatrix[i][j - 1] - pixelLuminMatrix[i][j + 1];
 				gradientsMagnitute[i-1][j-1] = Math.sqrt((dx * dx) + (dy * dy));
 				if (dx == 0) {
@@ -101,8 +101,8 @@ public class HOGProcessor {
 	}
 
 	public List<Double> getHOGDescriptors() {
-		if (!processed) {
-			throw new ImageNotProcessedException();
+		if (!this.processed) {
+			this.processImage();
 		}
 		return descriptors;
 	}
@@ -112,8 +112,8 @@ public class HOGProcessor {
 	}
 
 	public Image getLuminosityImage() {
-		if (!processed) {
-			throw new ImageNotProcessedException();
+		if (!this.processed) {
+			this.processImage();
 		}
 		byte[] buffer = new byte[this.image.getWidth() * this.image.getHeight()];
 		int x = 0;
@@ -136,8 +136,8 @@ public class HOGProcessor {
 	}
 	
 	public Image getGradientBordersImage() {
-		if (!processed) {
-			throw new ImageNotProcessedException();
+		if (!this.processed) {
+			this.processImage();
 		}
 		byte[] buffer = new byte[this.image.getWidth() * this.image.getHeight()];
 		int x = 0;
@@ -150,16 +150,24 @@ public class HOGProcessor {
 				y++;
 			}
 		}
-		double threshold = 13;
+		double minMagnitude = 0;
+		double maxMagnitude = 0;
+		for (int i = 0; i < gradientsMagnitute.length; i++) {
+			for (int j = 0; j < gradientsMagnitute[0].length; j++) {
+				minMagnitude = minMagnitude > gradientsMagnitute[i][j] ? gradientsMagnitute[i][j] : minMagnitude;
+				maxMagnitude = maxMagnitude > gradientsMagnitute[i][j] ? maxMagnitude : gradientsMagnitute[i][j];
+			}
+		}
+		double normalizationRate = (maxMagnitude - minMagnitude) / 255;
 		int[] rgb = new int[buffer.length];
 		for (int i = 0; i < rgb.length; ++i) {
 			x = i % this.image.getWidth();
 			y = i / this.image.getWidth();
-			if (x != 0 && x != this.image.getWidth() - 1 && y != 0 && y != this.image.getHeight() - 1 && (gradientsMagnitute[x-1][y-1]) > threshold) {
-				System.out.println(gradientsMagnitute[x-1][y-1] + " ");
-				rgb[i] = 0xFF0000;
+			if (x != 0 && x != this.image.getWidth() - 1 && y != 0 && y != this.image.getHeight() - 1) {
+				int intensity = (int) (gradientsMagnitute[x-1][y-1] / normalizationRate);
+				rgb[i] =  ((intensity << 16) | (intensity << 8) | intensity);
 			} else {
-				rgb[i] = ((buffer[i] << 16) | (buffer[i] << 8) | buffer[i]);
+				rgb[i] = 0x00;
 			}
 		}
 		BufferedImage image = new BufferedImage(this.image.getWidth(), this.image.getHeight(), BufferedImage.TYPE_INT_RGB);
