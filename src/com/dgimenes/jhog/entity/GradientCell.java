@@ -1,18 +1,18 @@
 package com.dgimenes.jhog.entity;
 
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
 
 public class GradientCell {
-	private Gradient[] gradients;
+	private List<Gradient> gradients;
+	private int length;
 	
-	public GradientCell() {
+	public GradientCell(int length) {
+		this.length = length;
+		this.gradients = new ArrayList<Gradient>(length);
 	}
 
-	public GradientCell(int quantityOfPixels) {
-		this.gradients = new Gradient[quantityOfPixels];
-	}
-
-	public Gradient[] getGradients() {
+	public List<Gradient> getGradients() {
 		return gradients;
 	}
 
@@ -20,7 +20,8 @@ public class GradientCell {
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + Arrays.hashCode(gradients);
+		result = prime * result + ((gradients == null) ? 0 : gradients.hashCode());
+		result = prime * result + length;
 		return result;
 	}
 
@@ -33,13 +34,18 @@ public class GradientCell {
 		if (getClass() != obj.getClass())
 			return false;
 		GradientCell other = (GradientCell) obj;
-		if (!Arrays.equals(gradients, other.gradients))
+		if (gradients == null) {
+			if (other.gradients != null)
+				return false;
+		} else if (!gradients.equals(other.gradients))
+			return false;
+		if (length != other.length)
 			return false;
 		return true;
 	}
 
 	@Override
 	public String toString() {
-		return "GradientCell [gradients=" + Arrays.toString(gradients) + "]";
+		return "GradientCell [gradients=" + gradients + ", length=" + length + "]";
 	}
 }

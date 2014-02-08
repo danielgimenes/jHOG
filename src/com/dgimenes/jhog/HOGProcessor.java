@@ -2,7 +2,6 @@ package com.dgimenes.jhog;
 
 import java.awt.Color;
 import java.awt.Graphics;
-import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.util.ArrayList;
@@ -16,22 +15,25 @@ public class HOGProcessor {
 	private static final int NUM_OF_CELLS_SQRT = 10;
 	private static final int NUM_OF_CELLS = NUM_OF_CELLS_SQRT * NUM_OF_CELLS_SQRT;
 	private boolean processed;
-	private List<Double> descriptors;
+	private List<Double> descriptor;
 	private BufferedImage image;
 	private double[][] pixelLuminMatrix;
-	private double[][] gradientsOrientation;
-	private double[][] gradientsMagnitute;
 	private GradientCell[] cells;
+	private Gradient[] gradients;
 	private int cellHeight;
 	private int cellWidth;
-	private int[][] histograms;
+	private double[][] histograms;
+	private int verticalDiscardBorderSize;
+	private int horizontalDiscardBorderSize;
 
 	public HOGProcessor(BufferedImage image) {
 		this.image = image;
 		this.processed = false;
-		this.descriptors = new ArrayList<Double>();
+		this.descriptor = new ArrayList<Double>();
 		this.cellHeight = (image.getHeight() - 2) / NUM_OF_CELLS_SQRT;
+		this.verticalDiscardBorderSize = (image.getHeight() - 2) % NUM_OF_CELLS_SQRT;
 		this.cellWidth = (image.getWidth() - 2) / NUM_OF_CELLS_SQRT;
+		this.horizontalDiscardBorderSize = (image.getWidth() - 2) % NUM_OF_CELLS_SQRT;
 	}
 
 	public void processImage() {
@@ -39,77 +41,111 @@ public class HOGProcessor {
 		this.createPixelLuminosityMatrix();
 
 		// calculate gradients for each pixel
-		this.calculateGradients();
+		this.calculateGradientsAndCells();
 
 		// create histograms for each cell
-		this.createCellsAndHistograms();
+		this.createHistograms();
 
-		// create blocks and normalize histograms
+		// normalize histograms
+		this.globalNormalization();
+		// this.localBlockBasedNormalization();
 
-		// create descriptors
+		// create descriptor
+		this.createDescriptors();
 
+		// mark as processed
 		this.processed = true;
 	}
 
-	private void calculateGradients() {
-		gradientsOrientation = new double[this.image.getWidth() - 2][this.image.getHeight() - 2];
-		gradientsMagnitute = new double[this.image.getWidth() - 2][this.image.getHeight() - 2];
-		// do not consider 1 pixel from image border to facilitate
-		for (int i = 1; i < pixelLuminMatrix.length - 1; i++) {
-			for (int j = 1; j < pixelLuminMatrix[0].length - 1; j++) {
-				double dx = pixelLuminMatrix[i + 1][j] - pixelLuminMatrix[i - 1][j];
-				double dy = pixelLuminMatrix[i][j - 1] - pixelLuminMatrix[i][j + 1];
-				gradientsMagnitute[i - 1][j - 1] = Math.sqrt((dx * dx) + (dy * dy));
-				if (dx == 0) {
-					dx = 0.1;
-				}
-				gradientsOrientation[i - 1][j - 1] = Math.toDegrees(Math.atan(dy / dx));
+	private void createDescriptors() {
+		this.descriptor = new ArrayList<Double>(NUM_OF_CELLS * 9);
+		for (int i = 0; i < NUM_OF_CELLS; i++) {
+			for (int z = 0; z < 9; z++) {
+				this.descriptor.add(this.histograms[i][z]);
 			}
 		}
 	}
 
-	private void createCellsAndHistograms() {
+	private void localBlockBasedNormalization() {
+		// TODO Auto-generated method stub
+	}
+
+	private void globalNormalization() {
+		double maxGradMagnitude = 0.0;
+		double minGradMagnitude = Double.MAX_VALUE;
+		double magnitude = 0.0;
+		for (int i = 0; i < NUM_OF_CELLS; i++) {
+			for (int z = 0; z < 9; z++) {
+				magnitude = this.histograms[i][z];
+				maxGradMagnitude = Math.max(magnitude, maxGradMagnitude);
+				minGradMagnitude = Math.min(magnitude, minGradMagnitude);
+			}
+		}
+		double normalizationRate = 1.0 / (maxGradMagnitude - minGradMagnitude);
+		for (int i = 0; i < NUM_OF_CELLS; i++) {
+			for (int z = 0; z < 9; z++) {
+				this.histograms[i][z] *= normalizationRate;
+			}
+		}
+	}
+
+	private void calculateGradientsAndCells() {
+		this.gradients = new Gradient[NUM_OF_CELLS * cellWidth * cellHeight];
+		int x = 1; // discard 1 column of pixels
+		int y = 1; // discard 1 line of pixels
+		for (int i = 0; i < this.gradients.length; i++) {
+			double dx = pixelLuminMatrix[x + 1][y] - pixelLuminMatrix[x - 1][y];
+			double dy = pixelLuminMatrix[x][y - 1] - pixelLuminMatrix[x][y + 1];
+			double magnitude = Math.sqrt((dx * dx) + (dy * dy));
+			double orientation = Math.toDegrees(Math.atan(dy / (dx == 0 ? 0.001 : dx)));
+			this.gradients[i] = new Gradient(orientation, magnitude);
+			if (x == NUM_OF_CELLS_SQRT * cellWidth) {
+				x = 1;
+				y++;
+			} else {
+				x++;
+			}
+		}
+
+		// THIS MUST BE REFACTORED
 		this.cells = new GradientCell[NUM_OF_CELLS];
 		for (int i = 0; i < NUM_OF_CELLS; i++) {
-			this.cells[i] = new GradientCell(cellWidth * cellHeight);
-			for (int j = 0; j < cellWidth * cellHeight; j++) {
-				int offsetX = (j % cellWidth) + (i % NUM_OF_CELLS_SQRT);
-				int offsetY = (j / cellWidth) + (i / NUM_OF_CELLS_SQRT);
-				this.cells[i].getGradients()[j] = new Gradient(this.gradientsOrientation[offsetX][offsetY], this.gradientsMagnitute[offsetX][offsetY]);
+			this.cells[i] = new GradientCell(cellHeight * cellWidth);
+		}
+		int cellIndex;
+		int lineOfGradInsideCell;
+		int globalIndexOfGrad;
+		int firstCellIndexInCurrentLine;
+		int quantityOfGradientsInLineOfCells = NUM_OF_CELLS_SQRT * cellWidth * cellHeight;
+		for (int lineOfCellOffset = 0; lineOfCellOffset < NUM_OF_CELLS_SQRT; lineOfCellOffset++) {
+			lineOfGradInsideCell = 0;
+			firstCellIndexInCurrentLine = (lineOfCellOffset * NUM_OF_CELLS_SQRT);
+			for (int localIndexOfGrad = 0; localIndexOfGrad < quantityOfGradientsInLineOfCells; localIndexOfGrad++) {
+				cellIndex = ((localIndexOfGrad - (lineOfGradInsideCell * NUM_OF_CELLS_SQRT * cellWidth)) / this.cellWidth)
+						+ (lineOfCellOffset * NUM_OF_CELLS_SQRT);
+				if (cellIndex == ((lineOfCellOffset + 1) * NUM_OF_CELLS_SQRT)) {
+					lineOfGradInsideCell++;
+					cellIndex = firstCellIndexInCurrentLine;
+				}
+				globalIndexOfGrad = localIndexOfGrad + (lineOfCellOffset * quantityOfGradientsInLineOfCells);
+				this.cells[cellIndex].getGradients().add(this.gradients[globalIndexOfGrad]);
 			}
 		}
+	}
 
-		// VALIDATION
-		// System.out.println(Math.abs(this.gradientsOrientation[0][0]) -
-		// Math.abs(this.cells[0].getGradients()[0].getOrientation()) <
-		// 0.000001);
-		// System.out.println(Math.abs(this.gradientsMagnitute[0][0]) -
-		// Math.abs(this.cells[0].getGradients()[0].getMagnitude()) < 0.000001);
-		// System.out.println(Math.abs(this.gradientsOrientation[1][0]) -
-		// Math.abs(this.cells[0].getGradients()[1].getOrientation()) <
-		// 0.000001);
-		// System.out.println(Math.abs(this.gradientsMagnitute[1][0]) -
-		// Math.abs(this.cells[0].getGradients()[1].getMagnitude()) < 0.000001);
-		// System.out.println(Math.abs(this.gradientsOrientation[0][1]) -
-		// Math.abs(this.cells[NUM_OF_CELLS_SQRT].getGradients()[0].getOrientation())
-		// < 0.000001);
-		// System.out.println(Math.abs(this.gradientsMagnitute[0][1]) -
-		// Math.abs(this.cells[NUM_OF_CELLS_SQRT].getGradients()[0].getMagnitude())
-		// < 0.000001);
-
-		this.histograms = new int[NUM_OF_CELLS][9];
-		for (int i = 0; i < NUM_OF_CELLS; i++) {
-			for (int j = 0; j < cellWidth * cellHeight; j++) {
-				Gradient grad = this.cells[i].getGradients()[j];
+	private void createHistograms() {
+		this.histograms = new double[NUM_OF_CELLS][9];
+		for (int cellIndex = 0; cellIndex < NUM_OF_CELLS; cellIndex++) {
+			for (int z = 0; z < 9; z++) {
+				this.histograms[cellIndex][z] = 0.0;
+			}
+			for (Gradient grad : this.cells[cellIndex].getGradients()) {
 				int histogramValueCategory = ((int) grad.getOrientation() + 90) / 20;
-				int histogramValueWeight = (int) grad.getMagnitude();
-				this.histograms[i][histogramValueCategory] += histogramValueWeight;
+				int histogramValueWeight = (int) Math.round(grad.getMagnitude());
+				this.histograms[cellIndex][histogramValueCategory] += histogramValueWeight;
 			}
-//			System.out.println("HISTOGRAMA DA CÉLULA[" + i + "]:");
-//			for (int z = 0; z < 9; z++) {
-//				System.out.println("\t" + (z*20) + " até " + (z*20+20) + " = " + this.histograms[i][z]);
-//			}
 		}
+
 	}
 
 	private void createPixelLuminosityMatrix() {
@@ -145,35 +181,61 @@ public class HOGProcessor {
 		int red = r & 0xff;
 		int green = g & 0xff;
 		int blue = b & 0xff;
+
+		// method 1 (Luma)
 		return (0.2126 * red) + (0.7152 * green) + (0.0722 * blue);
+
+		// method 2
+		// return (0.3 * red) + (0.59 * green) + (0.11 * blue);
+
+		// method 3 (BT.601)
+		// return (0.299 * red) + (0.587 * green) + (0.114 * blue);
+
+		// method 4 (GIMP Luminosity)
+		// return (0.2126 * red) + (0.7152 * green) + (0.0722 * blue) + 0.5;
+
+		// method 5 (GIMP Lightness)
+		// int max = Math.max(red, green);
+		// max = Math.max(max, blue);
+		// int min = Math.min(red, green);
+		// min = Math.min(min, blue);
+		// return (max + min) / 2;
+
+		// method 6 (GIMP Average)
+		// return (red + green + blue) / 3;
 	}
 
-	public List<Double> getHOGDescriptors() {
+	public List<Double> getHOGDescriptor() {
 		if (!this.processed) {
 			this.processImage();
 		}
-		return descriptors;
+		return descriptor;
 	}
 
 	public BufferedImage getOriginalImage() {
 		return this.image;
 	}
 
-	public Image getLuminosityImage() {
-		if (!this.processed) {
-			this.processImage();
-		}
-		int[] buffer = new int[this.image.getWidth() * this.image.getHeight()];
+	private int[] matrixToArray(double[][] matrix) {
+		int[] array = new int[matrix.length * matrix[0].length];
 		int x = 0;
 		int y = 0;
-		for (int i = 0; i < buffer.length; i++) {
-			buffer[i] = (int) this.pixelLuminMatrix[x][y];
+		for (int i = 0; i < array.length; i++) {
+			array[i] = (int) matrix[x][y];
 			x++;
-			if (x == this.image.getWidth()) {
+			if (x == matrix.length) {
 				x = 0;
 				y++;
 			}
 		}
+		return array;
+	}
+
+	public BufferedImage getLuminosityImage() {
+		if (!this.processed) {
+			this.processImage();
+		}
+		int[] buffer = this.matrixToArray(this.pixelLuminMatrix);
 		int[] rgb = new int[buffer.length];
 		for (int i = 0; i < rgb.length; ++i) {
 			rgb[i] = ((buffer[i] << 16) | (buffer[i] << 8) | buffer[i]);
@@ -181,21 +243,23 @@ public class HOGProcessor {
 		return ImageUtils.getBufferedImageFrom3bytePixelArray(rgb, this.image.getWidth(), this.image.getHeight());
 	}
 
-	public Image getLuminosityImageHistogramEqualized() {
+	public BufferedImage getLuminosityImageMinMaxEqualized() {
 		if (!this.processed) {
 			this.processImage();
 		}
-		int[] buffer = new int[this.image.getWidth() * this.image.getHeight()];
-		int x = 0;
-		int y = 0;
-		for (int i = 0; i < buffer.length; i++) {
-			buffer[i] = (int) this.pixelLuminMatrix[x][y];
-			x++;
-			if (x == this.image.getWidth()) {
-				x = 0;
-				y++;
-			}
+		int[] buffer = ImageUtils.adaptMinAndMaxValuesToGrayScale(this.pixelLuminMatrix);
+		int[] rgb = new int[buffer.length];
+		for (int i = 0; i < rgb.length; ++i) {
+			rgb[i] = ((buffer[i] << 16) | (buffer[i] << 8) | buffer[i]);
 		}
+		return ImageUtils.getBufferedImageFrom3bytePixelArray(rgb, this.image.getWidth(), this.image.getHeight());
+	}
+
+	public BufferedImage getLuminosityImageHistogramEqualized() {
+		if (!this.processed) {
+			this.processImage();
+		}
+		int[] buffer = this.matrixToArray(this.pixelLuminMatrix);
 		buffer = ImageUtils.getHistogramEqualizeGrayScaleImage(buffer);
 		int[] rgb = new int[buffer.length];
 		for (int i = 0; i < rgb.length; ++i) {
@@ -204,62 +268,92 @@ public class HOGProcessor {
 		return ImageUtils.getBufferedImageFrom3bytePixelArray(rgb, this.image.getWidth(), this.image.getHeight());
 	}
 
-	public Image getGradientMagnitudeImage() {
+	public BufferedImage getGradientMagnitudeImage() {
 		if (!this.processed) {
 			this.processImage();
 		}
 		// min-max equalization
 		double minMagnitude = 0;
 		double maxMagnitude = 0;
-		for (int i = 0; i < gradientsMagnitute.length; i++) {
-			for (int j = 0; j < gradientsMagnitute[0].length; j++) {
-				minMagnitude = minMagnitude > gradientsMagnitute[i][j] ? gradientsMagnitute[i][j] : minMagnitude;
-				maxMagnitude = maxMagnitude > gradientsMagnitute[i][j] ? maxMagnitude : gradientsMagnitute[i][j];
-			}
+		for (Gradient grad : this.gradients) {
+			minMagnitude = Math.min(minMagnitude, grad.getMagnitude());
+			maxMagnitude = Math.max(maxMagnitude, grad.getMagnitude());
 		}
 		double normalizationRate = (maxMagnitude - minMagnitude) / 255;
-		int[] rgb = new int[this.image.getWidth() * this.image.getHeight()];
-		for (int i = 0; i < rgb.length; ++i) {
-			int x = i % this.image.getWidth();
-			int y = i / this.image.getWidth();
-			if (x != 0 && x != this.image.getWidth() - 1 && y != 0 && y != this.image.getHeight() - 1) {
-				int intensity = (int) (gradientsMagnitute[x - 1][y - 1] / normalizationRate);
-				rgb[i] = ((intensity << 16) | (intensity << 8) | intensity);
-			} else {
-				rgb[i] = 0x00;
-			}
+		int[] rgb = new int[this.gradients.length];
+		int i = 0;
+		for (Gradient grad : this.gradients) {
+			int intensity = (int) (grad.getMagnitude() / normalizationRate);
+			rgb[i++] = ((intensity << 16) | (intensity << 8) | intensity);
 		}
-		return ImageUtils.getBufferedImageFrom3bytePixelArray(rgb, this.image.getWidth(), this.image.getHeight());
+		return ImageUtils.getBufferedImageFrom3bytePixelArray(rgb, NUM_OF_CELLS_SQRT * cellWidth, NUM_OF_CELLS_SQRT * cellHeight);
 	}
 
-	public Image getLuminosityImageWithCells() {
+	public BufferedImage getLuminosityImageWithCells(boolean drawCellIndex) {
 		if (!this.processed) {
 			this.processImage();
 		}
-		int[] buffer = new int[this.image.getWidth() * this.image.getHeight()];
-		int x = 0;
-		int y = 0;
-		for (int i = 0; i < buffer.length; i++) {
-			buffer[i] = (int) this.pixelLuminMatrix[x][y];
-			x++;
-			if (x == this.image.getWidth()) {
-				x = 0;
-				y++;
-			}
-		}
+		int[] buffer = this.matrixToArray(this.pixelLuminMatrix);
 		int[] rgb = new int[buffer.length];
 		for (int i = 0; i < rgb.length; ++i) {
 			rgb[i] = ((buffer[i] << 16) | (buffer[i] << 8) | buffer[i]);
 		}
-		Image image = ImageUtils.getBufferedImageFrom3bytePixelArray(rgb, this.image.getWidth(), this.image.getHeight());
+		BufferedImage image = ImageUtils.getBufferedImageFrom3bytePixelArray(rgb, this.image.getWidth(), this.image.getHeight());
 		Graphics graphics = image.getGraphics();
 		graphics.setColor(Color.GREEN);
+		int x = 0;
+		int y = 0;
 		for (int i = 0; i < NUM_OF_CELLS; i++) {
 			x = (i % NUM_OF_CELLS_SQRT) * cellWidth;
 			y = (i / NUM_OF_CELLS_SQRT) * cellHeight;
 			graphics.drawRect(x, y, cellWidth, cellHeight);
-			graphics.drawString(""+i, x+2, y+13);
+			if (drawCellIndex) {
+				graphics.drawString("" + i, x + 2, y + 13);
+			}
 		}
 		return image;
 	}
+
+	public BufferedImage getHOGDescriptorsRepresentation() {
+		BufferedImage image = this.getLuminosityImageWithCells(false);
+		Graphics graphics = image.getGraphics();
+		graphics.setColor(Color.RED);
+		double x1;
+		double y1;
+		double x2;
+		double y2;
+		int orientation;
+		double magnitude;
+		int xOffset;
+		int yOffset;
+		double scale = Math.min(this.cellWidth, this.cellHeight) / 1.2;
+		for (int cellIndex = 0; cellIndex < NUM_OF_CELLS; cellIndex++) {
+			for (int i = 0; i < 9; i++) {
+				orientation = 20 * i;
+				magnitude = (double) (this.histograms[cellIndex][i] * scale);
+				if (magnitude > scale) {
+					System.out.println();
+				}
+				x1 = (int) (Math.sin(Math.toRadians(orientation)) * magnitude);
+				y1 = (int) (Math.cos(Math.toRadians(orientation)) * magnitude);
+				x2 = x1 * -1;
+				y2 = y1 * -1;
+				// center
+				x1 += this.cellWidth / 2;
+				x2 += this.cellWidth / 2;
+				y1 += this.cellHeight / 2;
+				y2 += this.cellHeight / 2;
+				// position on cell
+				xOffset = cellWidth * (cellIndex % NUM_OF_CELLS_SQRT);
+				x1 += xOffset;
+				x2 += xOffset;
+				yOffset = cellHeight * (cellIndex / NUM_OF_CELLS_SQRT);
+				y1 += yOffset;
+				y2 += yOffset;
+				graphics.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
+			}
+		}
+		return image;
+	}
+
 }

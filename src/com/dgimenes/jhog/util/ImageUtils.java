@@ -1,19 +1,17 @@
 package com.dgimenes.jhog.util;
 
-import java.awt.Image;
 import java.awt.image.BufferedImage;
-import java.awt.image.IndexColorModel;
 
 public class ImageUtils {
 	public static int[] adaptMinAndMaxValuesToGrayScale(double[][] intensityMatrix) {
 		int matrixSize = intensityMatrix.length * intensityMatrix[0].length;
 		int[] equalizedImage = new int[matrixSize];
-		double minMagnitude = 0;
+		double minMagnitude = Double.MAX_VALUE;
 		double maxMagnitude = 0;
 		for (int i = 0; i < intensityMatrix.length; i++) {
 			for (int j = 0; j < intensityMatrix[0].length; j++) {
-				minMagnitude = minMagnitude > intensityMatrix[i][j] ? intensityMatrix[i][j] : minMagnitude;
-				maxMagnitude = maxMagnitude > intensityMatrix[i][j] ? maxMagnitude : intensityMatrix[i][j];
+				minMagnitude = Math.min(minMagnitude, intensityMatrix[i][j]);
+				maxMagnitude = Math.max(maxMagnitude, intensityMatrix[i][j]);
 			}
 		}
 		double normalizationRate = (maxMagnitude - minMagnitude) / 255;
@@ -46,7 +44,7 @@ public class ImageUtils {
 		return equalizedImage;
 	}
 
-	public static Image getBufferedImageFrom3bytePixelArray(int[] rgb, int width, int height) {
+	public static BufferedImage getBufferedImageFrom3bytePixelArray(int[] rgb, int width, int height) {
 		BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
 		image.setRGB(0, 0, width, height, rgb, 0, width);
 		for (int i = 0; i < image.getWidth(); i++) {
