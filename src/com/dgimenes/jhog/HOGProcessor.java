@@ -157,7 +157,7 @@ public class HOGProcessor {
 		int y = 0;
 		if (hasAlpha) {
 			for (int i = 0; i < imagePixelBytes.length; i += 4) {
-				this.pixelLuminMatrix[x][y] = calculateLuminosity(imagePixelBytes[i + 1], imagePixelBytes[i + 2], imagePixelBytes[i + 3]);
+				this.pixelLuminMatrix[x][y] = desaturatePixel(imagePixelBytes[i + 1], imagePixelBytes[i + 2], imagePixelBytes[i + 3]);
 				x++;
 				if (x == imageWidth) {
 					x = 0;
@@ -167,7 +167,7 @@ public class HOGProcessor {
 			}
 		} else {
 			for (int i = 0; i < imagePixelBytes.length; i += 3) {
-				this.pixelLuminMatrix[x][y] = calculateLuminosity(imagePixelBytes[i], imagePixelBytes[i + 1], imagePixelBytes[i + 2]);
+				this.pixelLuminMatrix[x][y] = desaturatePixel(imagePixelBytes[i], imagePixelBytes[i + 1], imagePixelBytes[i + 2]);
 				x++;
 				if (x == imageWidth) {
 					x = 0;
@@ -177,7 +177,7 @@ public class HOGProcessor {
 		}
 	}
 
-	private double calculateLuminosity(byte r, byte g, byte b) {
+	private double desaturatePixel(byte r, byte g, byte b) {
 		int red = r & 0xff;
 		int green = g & 0xff;
 		int blue = b & 0xff;
