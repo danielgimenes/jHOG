@@ -23,7 +23,21 @@ package com.dgimenes.jhog.util;
 
 import java.awt.image.BufferedImage;
 
-public class ImageUtils {
+/**
+ * Provides transformations for images such as luminosity normalization, and
+ * converting image format
+ * 
+ * @author danielgimenes
+ * @version 1.0
+ */
+public class ImageProcessingUtils {
+	/**
+	 * Gets maximum and minimum luminosity values in image (from
+	 * intensityMatrix) and normalize image in that range
+	 * 
+	 * @param intensityMatrix
+	 * @return equalized image as an array of luminosity intensities
+	 */
 	public static int[] adaptMinAndMaxValuesToGrayScale(double[][] intensityMatrix) {
 		int matrixSize = intensityMatrix.length * intensityMatrix[0].length;
 		int[] equalizedImage = new int[matrixSize];
@@ -44,15 +58,24 @@ public class ImageUtils {
 		return equalizedImage;
 	}
 
-	public static int[] getHistogramEqualizeGrayScaleImage(int[] imagePixels) {
-		int imageSize = imagePixels.length;
+	/**
+	 * Equalizes image using Histogram Equalization.
+	 * "Histogram equalization is a method in image processing of contrast adjustment using the image's histogram."
+	 * 
+	 * http://en.wikipedia.org/wiki/Histogram_equalization
+	 * 
+	 * @param pixelsLuminosisity
+	 * @return histogram equalized image
+	 */
+	public static int[] getHistogramEqualizedGrayScaleImage(int[] pixelsLuminosisity) {
+		int imageSize = pixelsLuminosisity.length;
 		int[] equalizedImage = new int[imageSize];
 		double equalizationAlpha = 255D / (imageSize);
 		int sizeOfHistogram = 256;
 		int[] intensityHistogram = new int[sizeOfHistogram];
 		int[] cumulativeIntensityHistogram = new int[sizeOfHistogram];
 		for (int q = 0; q < imageSize; q++) {
-			int value = imagePixels[q];
+			int value = pixelsLuminosisity[q];
 			intensityHistogram[value]++;
 		}
 		cumulativeIntensityHistogram[0] = (int) (intensityHistogram[0] * equalizationAlpha);
@@ -60,11 +83,20 @@ public class ImageUtils {
 			cumulativeIntensityHistogram[i] = (int) (cumulativeIntensityHistogram[i - 1] + (intensityHistogram[i] * equalizationAlpha));
 		}
 		for (int i = 0; i < imageSize; i++) {
-			equalizedImage[i] = (int) (cumulativeIntensityHistogram[(imagePixels[i])]);
+			equalizedImage[i] = (int) (cumulativeIntensityHistogram[(pixelsLuminosisity[i])]);
 		}
 		return equalizedImage;
 	}
 
+	/**
+	 * Converts an integer array with Red, Green and Blue values of each pixel,
+	 * sequentially, to a BufferedImage
+	 * 
+	 * @param rgb
+	 * @param width
+	 * @param height
+	 * @return correspondent buffered image
+	 */
 	public static BufferedImage getBufferedImageFrom3bytePixelArray(int[] rgb, int width, int height) {
 		BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
 		image.setRGB(0, 0, width, height, rgb, 0, width);

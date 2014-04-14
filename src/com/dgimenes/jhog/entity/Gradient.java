@@ -21,6 +21,12 @@
  */
 package com.dgimenes.jhog.entity;
 
+/**
+ * Gradient of a pixel in a direction (orientation) with a certain magnitude (intensity).
+ * 
+ * @author danielgimenes
+ * @version 1.0
+ */
 public class Gradient {
 	private double orientation;
 	private double magnitude;

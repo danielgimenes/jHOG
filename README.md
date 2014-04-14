@@ -5,7 +5,7 @@ Java library to calculate "Histogram of Oriented Gradients" (HOG) descriptors of
 
 ## Status
 
-Under development
+Under development (missing local block based normalization, some refactoring and tests)
 
 ## Results so far
 

@@ -30,7 +30,8 @@ import java.util.List;
 
 import com.dgimenes.jhog.entity.Gradient;
 import com.dgimenes.jhog.entity.GradientCell;
-import com.dgimenes.jhog.util.ImageUtils;
+import com.dgimenes.jhog.util.HexPrintUtil;
+import com.dgimenes.jhog.util.ImageProcessingUtils;
 
 public class HOGProcessor {
 	private static final int NUM_OF_CELLS_SQRT = 10;
@@ -148,7 +149,8 @@ public class HOGProcessor {
 					lineOfGradInsideCell++;
 					cellIndex = firstCellIndexInCurrentLine;
 				}
-				globalIndexOfGrad = localIndexOfGrad + (lineOfCellOffset * quantityOfGradientsInLineOfCells);
+				globalIndexOfGrad = localIndexOfGrad
+						+ (lineOfCellOffset * quantityOfGradientsInLineOfCells);
 				this.cells[cellIndex].getGradients().add(this.gradients[globalIndexOfGrad]);
 			}
 		}
@@ -178,7 +180,8 @@ public class HOGProcessor {
 		int y = 0;
 		if (hasAlpha) {
 			for (int i = 0; i < imagePixelBytes.length; i += 4) {
-				this.pixelLuminMatrix[x][y] = desaturatePixel(imagePixelBytes[i + 1], imagePixelBytes[i + 2], imagePixelBytes[i + 3]);
+				this.pixelLuminMatrix[x][y] = desaturatePixel(imagePixelBytes[i + 1],
+						imagePixelBytes[i + 2], imagePixelBytes[i + 3]);
 				x++;
 				if (x == imageWidth) {
 					x = 0;
@@ -188,7 +191,8 @@ public class HOGProcessor {
 			}
 		} else {
 			for (int i = 0; i < imagePixelBytes.length; i += 3) {
-				this.pixelLuminMatrix[x][y] = desaturatePixel(imagePixelBytes[i], imagePixelBytes[i + 1], imagePixelBytes[i + 2]);
+				this.pixelLuminMatrix[x][y] = desaturatePixel(imagePixelBytes[i],
+						imagePixelBytes[i + 1], imagePixelBytes[i + 2]);
 				x++;
 				if (x == imageWidth) {
 					x = 0;
@@ -226,7 +230,7 @@ public class HOGProcessor {
 		// return (red + green + blue) / 3;
 	}
 
-	public List<Double> getHOGDescriptor() {
+	public List<Double> getHOGDescriptors() {
 		if (!this.processed) {
 			this.processImage();
 		}
@@ -261,19 +265,21 @@ public class HOGProcessor {
 		for (int i = 0; i < rgb.length; ++i) {
 			rgb[i] = ((buffer[i] << 16) | (buffer[i] << 8) | buffer[i]);
 		}
-		return ImageUtils.getBufferedImageFrom3bytePixelArray(rgb, this.image.getWidth(), this.image.getHeight());
+		return ImageProcessingUtils.getBufferedImageFrom3bytePixelArray(rgb, this.image.getWidth(),
+				this.image.getHeight());
 	}
 
 	public BufferedImage getLuminosityImageMinMaxEqualized() {
 		if (!this.processed) {
 			this.processImage();
 		}
-		int[] buffer = ImageUtils.adaptMinAndMaxValuesToGrayScale(this.pixelLuminMatrix);
+		int[] buffer = ImageProcessingUtils.adaptMinAndMaxValuesToGrayScale(this.pixelLuminMatrix);
 		int[] rgb = new int[buffer.length];
 		for (int i = 0; i < rgb.length; ++i) {
 			rgb[i] = ((buffer[i] << 16) | (buffer[i] << 8) | buffer[i]);
 		}
-		return ImageUtils.getBufferedImageFrom3bytePixelArray(rgb, this.image.getWidth(), this.image.getHeight());
+		return ImageProcessingUtils.getBufferedImageFrom3bytePixelArray(rgb, this.image.getWidth(),
+				this.image.getHeight());
 	}
 
 	public BufferedImage getLuminosityImageHistogramEqualized() {
@@ -281,12 +287,13 @@ public class HOGProcessor {
 			this.processImage();
 		}
 		int[] buffer = this.matrixToArray(this.pixelLuminMatrix);
-		buffer = ImageUtils.getHistogramEqualizeGrayScaleImage(buffer);
+		buffer = ImageProcessingUtils.getHistogramEqualizedGrayScaleImage(buffer);
 		int[] rgb = new int[buffer.length];
 		for (int i = 0; i < rgb.length; ++i) {
 			rgb[i] = ((buffer[i] << 16) | (buffer[i] << 8) | buffer[i]);
 		}
-		return ImageUtils.getBufferedImageFrom3bytePixelArray(rgb, this.image.getWidth(), this.image.getHeight());
+		return ImageProcessingUtils.getBufferedImageFrom3bytePixelArray(rgb, this.image.getWidth(),
+				this.image.getHeight());
 	}
 
 	public BufferedImage getGradientMagnitudeImage() {
@@ -307,7 +314,8 @@ public class HOGProcessor {
 			int intensity = (int) (grad.getMagnitude() / normalizationRate);
 			rgb[i++] = ((intensity << 16) | (intensity << 8) | intensity);
 		}
-		return ImageUtils.getBufferedImageFrom3bytePixelArray(rgb, NUM_OF_CELLS_SQRT * cellWidth, NUM_OF_CELLS_SQRT * cellHeight);
+		return ImageProcessingUtils.getBufferedImageFrom3bytePixelArray(rgb, NUM_OF_CELLS_SQRT
+				* cellWidth, NUM_OF_CELLS_SQRT * cellHeight);
 	}
 
 	public BufferedImage getLuminosityImageWithCells(boolean drawCellIndex) {
@@ -319,7 +327,8 @@ public class HOGProcessor {
 		for (int i = 0; i < rgb.length; ++i) {
 			rgb[i] = ((buffer[i] << 16) | (buffer[i] << 8) | buffer[i]);
 		}
-		BufferedImage image = ImageUtils.getBufferedImageFrom3bytePixelArray(rgb, this.image.getWidth(), this.image.getHeight());
+		BufferedImage image = ImageProcessingUtils.getBufferedImageFrom3bytePixelArray(rgb,
+				this.image.getWidth(), this.image.getHeight());
 		Graphics graphics = image.getGraphics();
 		graphics.setColor(Color.GREEN);
 		int x = 0;

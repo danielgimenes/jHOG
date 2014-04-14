@@ -24,10 +24,16 @@ package com.dgimenes.jhog.entity;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Group of gradients of spatially proximate pixels
+ * 
+ * @author danielgimenes
+ * @version 1.0
+ */
 public class GradientCell {
 	private List<Gradient> gradients;
 	private int length;
-	
+
 	public GradientCell(int length) {
 		this.length = length;
 		this.gradients = new ArrayList<Gradient>(length);
