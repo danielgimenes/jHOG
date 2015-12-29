@@ -9,8 +9,8 @@ Under development (missing local block based normalization, some refactoring and
 
 ## Results so far
 
-![Image representing results so far](https://raw2.github.com/danielgimenes/jHOG/master/doc/so_far5.png)
-![Image representing results so far](https://raw2.github.com/danielgimenes/jHOG/master/doc/so_far6.png)
+![Image 1 representing results so far](doc/so_far5.png)
+![Image 2 representing results so far](doc/so_far6.png)
 
 
 ## License
